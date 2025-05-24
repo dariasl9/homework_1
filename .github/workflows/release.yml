@@ -23,12 +23,13 @@ jobs:
         run: |
           cd build
           cpack -G DEB
-          mv *.deb ../helloworld-0.0.${{ github.run_number }}-Linux.deb
+          mkdir -p ../artifacts
+          mv *.deb ../artifacts/helloworld-0.0.${{ github.run_number }}-Linux.deb
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: package
-          path: helloworld-0.0.${{ github.run_number }}-Linux.deb
+          name: deb-package
+          path: artifacts/helloworld-0.0.${{ github.run_number }}-Linux.deb
           
   release:
     needs: build
@@ -39,14 +40,21 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
+          name: deb-package
           path: artifacts
+
+      - name: Verify file exists
+        run: |
+          ls -la artifacts/
+          test -f artifacts/helloworld-0.0.${{ github.run_number }}-Linux.deb || exit 1
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v0.0.${{ github.run_number }}
           release_name: Release v0.0.${{ github.run_number }}
-          files: |
-            artifacts/*.deb
+          files: artifacts/helloworld-0.0.${{ github.run_number }}-Linux.deb
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
