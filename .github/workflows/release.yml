@@ -1,0 +1,60 @@
+name: 'C++ CI'
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake
+      - name: Configure CMake
+        run: |
+          cmake -B build -DPROJECT_VERSION_PATCH=${{ github.run_number }} \
+                -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --config Release
+      - name: Create package
+        run: |
+          cd build
+          cpack -G DEB
+          mkdir -p ../artifacts
+          mv *.deb ../artifacts/helloworld-0.0.${{ github.run_number }}-Linux.deb
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-package
+          path: artifacts/helloworld-0.0.${{ github.run_number }}-Linux.deb
+          
+  release:
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deb-package
+          path: artifacts
+
+      - name: Verify file exists
+        run: |
+          ls -la artifacts/
+          test -f artifacts/helloworld-0.0.${{ github.run_number }}-Linux.deb || exit 1
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v0.0.${{ github.run_number }}
+          release_name: Release v0.0.${{ github.run_number }}
+          files: artifacts/helloworld-0.0.${{ github.run_number }}-Linux.deb
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
